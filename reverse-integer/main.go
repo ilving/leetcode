@@ -7,10 +7,12 @@ If reversing x causes the value to go outside the signed 32-bit integer range [-
 
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func reverse(x int) int {
-	var inv int64 = 0
+	var inv_l, inv_h uint32 // 16-bits part of inverted number
 
 	neg := 1
 
@@ -20,19 +22,29 @@ func reverse(x int) int {
 	}
 
 	for x > 0 {
-		rest := x % 10
-		x = (x - rest) / 10
-		inv = inv*10 + int64(rest)
+		rest := uint32(x % 10)
+		x /= 10
+
+		inv_h = inv_h<<3 + inv_h<<1        // high part * 10
+		inv_l = inv_l<<3 + inv_l<<1 + rest // low * 10 + rest
+		if inv_l&0xFFFF0000 > 0 {          // lower part hav more than 16 bits....
+			inv_h += inv_l >> 16 // pass higest 16 bits to higer part
+			inv_l &= 0xFFFF      // and clear them
+		}
+		if inv_h&0xFFFF8000 > 0 { // if higth part contains more than 16 bits - we cannot store inversed part
+			return 0
+		}
 	}
 
-	if inv > (1<<31)-1 {
-		return 0
-	}
-
-	return int(inv) * neg
+	return int((inv_h&0xFFFF)<<16+(inv_l&0xFFFF)) * neg
 }
 
 func main() {
-	x := 1534236469
-	fmt.Printf("%d | %d", x, reverse(x))
+	x := []int{1563847412, -2147483412, 1534236469}
+
+	// 9646324351 | 2147483647
+	for _, v := range x {
+
+		fmt.Printf("%d | %d\n", v, reverse(v))
+	}
 }
